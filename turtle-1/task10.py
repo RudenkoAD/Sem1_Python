@@ -1,7 +1,7 @@
 import turtle as T
 import numpy as np
 T.shape('turtle')
-T.speed(0.2)
+T.speed(3)
 
 for i in range(5):
     T.circle(30)

@@ -1,15 +1,14 @@
 import turtle as T
-import numpy as np
+import math as m
 T.shape()
 T.shapesize(1)
-
+T.radians()
 
 r = 30
-k = 20
+k = 50
 
 while True:
-    dL=np.sqrt(r**2+k**2)/100
-    da=(k+1)/r/100
+    dL=m.sqrt(r**2+k**2)/2/m.pi/10
     T.forward(dL)
-    T.left(da*360/2/np.pi)
-    r+=k/100
+    T.left(0.1)
+    r+=k/2/m.pi/10
