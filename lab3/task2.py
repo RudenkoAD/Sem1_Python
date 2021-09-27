@@ -29,9 +29,9 @@ polygon(screen, (0, 0, 0), [(160, 150), (110, 140), (120, 130), (170, 140)])
 
 
 #debug
-for i in range(80):
-	line(screen, (0, 0, 0), (i*5, 0), (i*5, 400), 1)
-	line(screen, (0, 0, 0), (0, i*5), (400, i*5), 1)
+#for i in range(80):
+#	line(screen, (0, 0, 0), (i*5, 0), (i*5, 400), 1)
+#	line(screen, (0, 0, 0), (0, i*5), (400, i*5), 1)
 
 pygame.display.update()
 clock = pygame.time.Clock()
