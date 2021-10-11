@@ -4,12 +4,12 @@ from random import randint
 pygame.init()
 
 global starttime, ballspeed, ballrad
-starttime = 2
+starttime = 30
 ballspeed = 10
 ballrad = (15, 30)
 
 global screen_height, screen_width
-screen_height = 900
+screen_height = 800
 screen_width = 1200
 FPS = 60
 
@@ -123,25 +123,25 @@ while not finished:
 	background.update()
 	
 	pygame.display.update()
-'''
+
 #записать:
 score = background.score.count
-with open('leaderboard.txt', 'w+') as f:
+with open('leaderboard.txt', 'r') as f:
 	massiv = f.read().split('\n')
 	for i in range(len(massiv)):
 		massiv[i]=massiv[i].split(' ')
-	massiv.append([name, score])
-	massiv.sort(key = lambda x:x[1])
+	massiv.append([name, str(score)])
+	massiv.sort(key =lambda x: -int(x[1]))
+	print(massiv)
 	massiv.pop()
+	space=' '
+	newline='\n'
 	for i in range(len(massiv)):
-		massiv[i]=massiv[i].join(' ')
-	f.write(massiv.join('\n'))
-'''
-while True:
-	for event in pygame.event.get():
-		if event.type == pygame.QUIT:
-			pygame.quit()
-			
+		massiv[i]=space.join(massiv[i])
+with open('leaderboard.txt', 'w') as f:
+	f.write(newline.join(massiv))
+
+while True:		
 	screen.fill(BLACK)
 	num = font.render(str(background.score.count), 0, COLORS[2])
 	text = font.render('Финальный Счёт:', 0, COLORS[3])
@@ -150,6 +150,10 @@ while True:
 	screen.blit(num, (screen_width/2 - num.get_width()/2, screen_height/2))
 	
 	pygame.display.update()
+
+	for event in pygame.event.get():
+		if event.type == pygame.QUIT:
+			pygame.quit()
 	
 	
 	
