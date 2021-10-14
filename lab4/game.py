@@ -1,13 +1,19 @@
 import pygame
 from pygame.draw import *
 from random import randint
+import configparser
+
 pygame.init()
 
-global screen_height, screen_width
-screen_height = 800
-screen_width = 1200
-FPS = 60
+config = configparser.ConfigParser()
+config.read('options.ini')
 
+global screen_height, screen_width
+screen_height = int(config['Screen']['screen_height'])
+screen_width = int(config['Screen']['screen_width'])
+FPS = int(config['Screen']['FPS'])
+
+global COLORS, GameFont
 RED = (255, 0, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
@@ -16,18 +22,61 @@ MAGENTA = (255, 0, 255)
 CYAN = (0, 255, 255)
 BLACK = (0, 0, 0)
 WHITE = (255, 255, 255)
-
-global COLORS, GameFont
-COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN, WHITE, BLACK]
+GREY = (100, 100, 100)
+COLORS = [RED, BLUE, YELLOW, GREEN, MAGENTA, CYAN, WHITE, BLACK, GREY]
 GameFont = pygame.font.SysFont('nimbussans', 100)
 
+class Name_Input:
+    def __init__(self, default, cords, size, color_inactive = COLORS[7], color_active = COLORS[8]):
+        self.cords = cords
+        self.size = size
+        self.rect = pygame.Rect(cords, size)
+        self.font = pygame.font.SysFont('nimbussans', 50)
+        self.active = False
+        self.color_inactive = color_inactive
+        self.color_active = color_active
+        self.text=''
+        self.default = default
 
+    def update(self):
+        if not self.active and self.text == '':
+            self.textsurf = self.font.render(self.default, 1, COLORS[6])
+            self.textsurf.set_alpha(100)
+        else:
+            self.textsurf = self.font.render(self.text, 1, COLORS[6])
+        self.textsize = self.textsurf.get_size()
+        x0=self.size[0]-self.textsize[0]
+        y0=self.size[1]-self.textsize[1]
+        self.surface = pygame.Surface(self.size)
+        if self.active:
+            bg = self.color_active
+        else:
+            bg = self.color_inactive
+        self.surface.fill(bg)
+        self.surface.blit(self.textsurf, (x0/2, y0/2))
+        screen.blit(self.surface, self.cords)
+
+    def edit(self, event):
+        if self.active:
+            if event.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]
+            elif event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
+                self.active=False
+            else:
+                self.text += event.unicode
+    def checkclick(self, pos):
+        if self.rect.collidepoint(pos):
+            return True
+        return False
+
+
+        
 
 class Ball: 
     
     def __init__(self):
-        self.x = randint(100, 1100)
-        self.y = randint(100, 700)
+        self.x = randint(screen_width/10, screen_width*9/10)
+        self.y = randint(screen_height/10, screen_height*9/10)
         self.rad = randint(ballrad[0], ballrad[1])
         self.speed = [randint(-ballspeed, ballspeed), randint(ballspeed, ballspeed)]
         self.color = COLORS[randint(0, 5)]
@@ -52,7 +101,7 @@ class Counter:
     def __init__(self, count, cords = (0, 0)):
         self.count=count
         self.cords=cords
-        self.font = GameFont
+        self.font = pygame.font.SysFont('nimbussans', 30)
         
     def update(self):
         num = self.font.render(str(self.count), 0, COLORS[1])
@@ -121,53 +170,46 @@ class Button:
             return True
         return False
 
-
-
-
-
+#leaderboard settings:
+def leaderboard(name, score):
+    if name == '':
+        return 0
+    with open('leaderboard.txt', 'r') as f:
+            massiv = f.read().split('\n')
+            for i in range(len(massiv)):
+                    massiv[i]=massiv[i].split(' ')
+            massiv.append([name, str(score)])
+            massiv.sort(key =lambda x: -int(x[1]))
+            print(massiv)
+            massiv.pop()
+            space=' '
+            newline='\n'
+            for i in range(len(massiv)):
+                    massiv[i]=space.join(massiv[i])
+    with open('leaderboard.txt', 'w') as f:
+            f.write(newline.join(massiv))
 
 #startup
 finished = False
 screen = pygame.display.set_mode((screen_width, screen_height))
 clock = pygame.time.Clock()
 
-#menu screen
-In_Menu = True
-#initiate menu buttons
+#initiating menu screen
 easy = Button('Easy', 0, (450,100), (300, 100))
 medium = Button('Medium', 1, (450,300), (300, 100))
 hard = Button('Hard', 2, (450,500), (300, 100))
-buttons = [easy, medium, hard]
-
-#menu loop
-while In_Menu and not finished:
-    clock.tick(FPS)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            finished = True
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            if event.button == 1:
-                pos = event.pos
-                for button in buttons:
-                    if button.checkclick(pos):
-                        dif_id = button.id
-                        In_Menu = False
-    screen.fill(BLACK)
-    for button in buttons:
-        button.update()
-    pygame.display.update()
+menu_buttons = [easy, medium, hard]
+input_name = Name_Input('Your name here...', (450, 650), (300, 50))
 
 #initianting game screen and setting the game difficulty
-if not finished:
-    difset = [
-    [30, 4, (20, 40), 1],
-    [30, 8, (15, 30), 1.5],
-    [30, 12, (10, 20), 2]
-    ]
-    global starttime, ballspeed, ballrad, score_multi
-    starttime, ballspeed, ballrad, score_multi = difset[dif_id]
-    In_Game = True
-    
+global starttime, ballspeed, ballrad, score_multi
+starttime, ballspeed, ballrad, score_multi = (0, 0, 0, 0)
+
+#initiating final screen
+new_game = Button('Play Again?', 3, (400,501), (400, 100))
+final_buttons = [new_game]
+
+def Initiate_Game():
     balls = []
     for i in range(10):
         ball=Ball()
@@ -175,70 +217,97 @@ if not finished:
     background = Background()
     pygame.display.update()
     pygame.time.set_timer(pygame.USEREVENT, 1000)
+    return balls, background
 
-#game loop
-while In_Game and not finished:
-    clock.tick(FPS)
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            finished = True
-            
-        elif event.type == pygame.MOUSEBUTTONDOWN:
-            #cords = event.pos
-            cords = pygame.mouse.get_pos()
-            for ball in balls:
-                if ball.checkclick(cords):
-                    balls.remove(ball)
-                    background.score.count+=score_multi
-                    newball=Ball()
-                    balls.append(newball)
- 
-        elif event.type == pygame.USEREVENT:
-            background.time.count-=1
-            if background.time.count == 0:
-                In_Game=False
-    
-    screen.fill(BLACK)
-    for ball in balls:
-        ball.update()
-    background.update()
-    pygame.display.update()
-
-#leaderboard update:
-    #это жесть просто, я не знаю как это нормально делать, спасите
-    '''
-if not finished:                
-        score = background.score.count
-        with open('leaderboard.txt', 'r') as f:
-                massiv = f.read().split('\n')
-                for i in range(len(massiv)):
-                        massiv[i]=massiv[i].split(' ')
-                massiv.append([name, str(score)])
-                massiv.sort(key =lambda x: -int(x[1]))
-                print(massiv)
-                massiv.pop()
-                space=' '
-                newline='\n'
-                for i in range(len(massiv)):
-                        massiv[i]=space.join(massiv[i])
-        with open('leaderboard.txt', 'w') as f:
-                f.write(newline.join(massiv))
-                '''
-
-#final screen:
-while not finished:     
-    screen.fill(BLACK)
+def Initiate_Final():
     num = GameFont.render(str(background.score.count), 0, COLORS[2])
     text = GameFont.render('Финальный Счёт:', 0, COLORS[3])
-    
-    screen.blit(text, (screen_width/2 - text.get_width()/2, screen_height/2 - 101))
-    screen.blit(num, (screen_width/2 - num.get_width()/2, screen_height/2))
-    
-    pygame.display.update()
+    return num, text
 
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            finished=True
+
+#settings for the loop
+In_Menu = True
+In_Game = False
+In_Final_Screen = False
+
+#Loop
+while not finished:
+    
+    if In_Menu:
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                finished = True
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    pos = event.pos
+                    for button in menu_buttons:
+                        if button.checkclick(pos):
+                            starttime = int(config[button.text]['starttime'])
+                            ballspeed = int(config[button.text]['ballspeed'])
+                            ballrad = (int(config[button.text]['ballradmin']), int(config[button.text]['ballradmax']))
+                            score_multi = int(config[button.text]['score_multi'])
+                            balls, background = Initiate_Game()
+                            name = input_name.text
+                            In_Menu = False
+                            In_Game = True
+                    if input_name.checkclick(pos):
+                        input_name.active = True
+            elif event.type == pygame.KEYDOWN:
+                input_name.edit(event)
+        screen.fill(BLACK)
+        for button in menu_buttons:
+            button.update()
+        input_name.update()
+        pygame.display.update()
+
+    if In_Game:
+        clock.tick(FPS)
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                finished = True
+                
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                cords = pygame.mouse.get_pos()
+                for ball in balls:
+                    if ball.checkclick(cords):
+                        balls.remove(ball)
+                        background.score.count+=score_multi
+                        newball=Ball()
+                        balls.append(newball)
+            elif event.type == pygame.USEREVENT:
+                background.time.count-=1
+                if background.time.count == 0:
+                    pygame.time.set_timer(pygame.USEREVENT, 0)
+                    In_Game=False
+                    In_Final_Screen=True
+                    num, text = Initiate_Final()
+                    leaderboard(name, background.score.count)
+        screen.fill(BLACK)
+        for ball in balls:
+            ball.update()
+        background.update()
+        pygame.display.update()
+
+    if In_Final_Screen:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                finished=True
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    pos = event.pos
+                    for button in final_buttons:
+                        if button.checkclick(pos):
+                            if button.id == 3:
+                                In_Final_Screen = False
+                                In_Menu = True
+        screen.fill(BLACK)
+        screen.blit(text, (screen_width/2 - text.get_width()/2, screen_height/2 - 101))
+        screen.blit(num, (screen_width/2 - num.get_width()/2, screen_height/2))
+        for button in final_buttons:
+            button.update()
+        pygame.display.update()
+
 
 pygame.quit
     
