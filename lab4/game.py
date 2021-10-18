@@ -4,7 +4,6 @@ import pygame
 from pygame.draw import *
 from random import randint
 import configparser
-from math import sin, cos
 
 pygame.init()
 
@@ -81,6 +80,7 @@ class Square:
     def __init__(self, rot_speed):
         self.center_x = randint(screen_width * 2 / 10, screen_width * 8 / 10)
         self.center_y = randint(screen_height * 2 / 10, screen_height * 8 / 10)
+        self.x, self.y = self.center_x, self.center_y
         self.rotation = randint(0, 360)
         self.rot_speed = rot_speed
         self.size = 2 * randint(ballrad[0], ballrad[1])
@@ -92,8 +92,8 @@ class Square:
 
     def update(self):
         self.rotation += self.rot_speed
-        self.x = self.center_x + self.radius * cos(self.rotation/360 * 2 * math.pi)
-        self.y = self.center_y + self.radius * sin(self.rotation/360 * 2 * math.pi)
+        self.x = self.center_x + self.radius * math.cos(self.rotation/360 * 2 * math.pi)
+        self.y = self.center_y + self.radius * math.sin(self.rotation/360 * 2 * math.pi)
         self.rect.center = self.x, self.y
 
     def draw(self ,surface):
@@ -104,6 +104,34 @@ class Square:
             return True
         return False
 
+class ScaredSquare:
+
+    def __init__(self):
+        self.x = randint(screen_width * 4 / 10, screen_width * 6 / 10)
+        self.y = randint(screen_height * 4 / 10, screen_height * 6 / 10)
+        self.speed = scared_square_speed
+        self.size = 2 * randint(ballrad[0], ballrad[1])
+        self.color = COLORS[randint(0, 5)]
+        self.image = pygame.surface.Surface((self.size, self.size))
+        self.image.fill(self.color)
+        self.rect = self.image.get_rect()
+
+    def update(self):
+        mouse_pos = pygame.mouse.get_pos()
+        m_x = self.x - mouse_pos[0]
+        m_y = self.y - mouse_pos[1]
+
+        self.x += self.speed * m_x/math.sqrt(m_x ** 2 + m_y ** 2)
+        self.y += self.speed * m_y / math.sqrt(m_x ** 2 + m_y ** 2)
+        self.rect.center = self.x, self.y
+
+    def draw(self ,surface):
+        surface.blit(self.image, self.rect)
+
+    def checkclick(self, pos):
+        if abs(self.x - pos[0]) < self.size/2 and abs(self.y - pos[1]) < self.size/2:
+            return True
+        return False
 
 class Ball:
 
@@ -255,11 +283,13 @@ def Initiate_Game():
         ball = Ball()
         balls.append(ball)
     squares = []
+    scared_squares  = []
     background = Background()
     pygame.display.update()
     pygame.time.set_timer(pygame.USEREVENT, 1000)
     pygame.time.set_timer(pygame.USEREVENT + 1, 3000)
-    return balls, squares, background
+    pygame.time.set_timer(pygame.USEREVENT + 2, 7000)
+    return balls, squares, scared_squares, background
 
 
 def Initiate_Final():
@@ -292,7 +322,10 @@ while not finished:
                             ball_score = int(config[button.text]['ball_score'])
                             square_score = int(config[button.text]['square_score'])
                             square_rot_speed = int(config[button.text]['square_rot_speed'])
-                            balls, squares, background = Initiate_Game()
+                            scared_square_speed = int(config[button.text]['scared_square_speed'])
+                            scared_square_score = int(config[button.text]['scared_square_score'])
+
+                            balls, squares, scared_squares, background = Initiate_Game()
                             name = input_name.text
                             In_Menu = False
                             In_Game = True
@@ -326,10 +359,20 @@ while not finished:
                         squares.remove(square)
                         background.score.count += square_score
 
+                for scared in scared_squares:
+                    if scared.checkclick(cords):
+                        scared_squares.remove(scared)
+                        background.score.count += scared_square_score
+
             elif event.type == pygame.USEREVENT + 1:
                 squares = []
                 newsquare = Square(square_rot_speed)
                 squares.append(newsquare)
+
+            elif event.type == pygame.USEREVENT + 2:
+                scared_squares = []
+                newscared = ScaredSquare()
+                scared_squares.append(newscared)
 
             elif event.type == pygame.USEREVENT:
                 background.time.count -= 1
@@ -346,6 +389,9 @@ while not finished:
         for square in squares:
             square.update()
             square.draw(screen)
+        for scared in scared_squares:
+            scared.update()
+            scared.draw(screen)
         background.update()
         pygame.display.update()
 
