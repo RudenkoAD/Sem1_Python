@@ -8,10 +8,11 @@ class Background():
     def __init__(self):
         pass
     def draw(self, screen):
-        pygame.draw.rect(screen, GREY, (100, 100, WIDTH-200, HEIGHT-200), 1)
+        pass
+        #pygame.draw.rect(screen, GREY, (100, 100, WIDTH-200, HEIGHT-200), 1)
 
 class Ball(pygame.sprite.Sprite):
-    def __init__(self, x = 20, y = 450):
+    def __init__(self, x=20, y=450):
         """ Конструктор класса ball
 
         Args:
@@ -21,10 +22,11 @@ class Ball(pygame.sprite.Sprite):
         r = 10
         self.r = 10
         super().__init__()
-        self.color = choice(GAME_COLORS)
-        self.image = pygame.surface.Surface((2*r,2*r))
-        self.image.set_colorkey(BLACK)
-        pygame.draw.circle(self.image, self.color, (r, r), r)
+        #self.color = choice(GAME_COLORS)
+        #self.image = pygame.surface.Surface((2*r,2*r))
+        self.image = pygame.transform.scale(pygame.image.load('resources/ball.png').convert(), (2*r, 2*r))
+        self.image.set_colorkey(WHITE)
+        #pygame.draw.circle(self.image, self.color, (r, r), r)
         self.rect=self.image.get_rect()
         self.rect.centerx=x
         self.rect.centery=y
@@ -33,37 +35,49 @@ class Ball(pygame.sprite.Sprite):
         self.vy = 0
         self.live = 30
 
-    def update(self, screen):
+    def update(self, screen, tiles, *args):
         """Переместить мяч по прошествии единицы времени.
 
         Метод описывает перемещение мяча за один кадр перерисовки. То есть, обновляет значения
         self.x и self.y с учетом скоростей self.vx и self.vy, силы гравитации, действующей на мяч,
         и стен по краям окна (размер окна 800х600).
+        Метод высчитывает столкновения с препятствиями tiles и отражает мяч от них, удаляя wood_tiles
         """
-        self.rect = self.rect.move(self.vx, int(self.vy))
+
+        self.rect = self.rect.move(self.vx, 0)
+
+        tiles_hit_list = pygame.sprite.spritecollide(self, tiles, dokill=False)
+        if tiles_hit_list:
+            for tile in tiles_hit_list:
+                if isinstance(tile, WoodTile):
+                    tile.kill()
+                if self.vx >= 0:
+                    self.rect.right = tile.rect.left
+                else:
+                    self.rect.left = tile.rect.right
+            self.vx = -self.vx
+
+        self.rect = self.rect.move(0, int(self.vy))
+
+        tiles_hit_list = pygame.sprite.spritecollide(self, tiles, dokill=False)
+        if tiles_hit_list:
+            for tile in tiles_hit_list:
+                if isinstance(tile, WoodTile):
+                    tile.kill()
+                if self.vy >= 0:
+                    self.rect.bottom = tile.rect.top
+                else:
+                    self.rect.top = tile.rect.bottom
+            self.vy = -self.vy*BOUNCE_COEFFICENT
+
         self.vy += 0.5
-        self.vx -= 0.2 * self.vx / abs(self.vx)
-        if self.rect.right >= screen.get_width():
-            self.rect.right = screen.get_width()
-            self.vx = -self.vx
-
-        if self.rect.bottom >= screen.get_height():
-            self.rect.bottom = screen.get_height()
-            self.vy = -self.vy/2
-
-        if self.rect.top <= 0:
-            self.rect.top = 0
-            self.vy = -self.vy/2
-
-        if self.rect.left <= 0:
-            self.rect.left = 0
-            self.vx = -self.vx
+        self.vx = self.vx * FRICTION_COEFFICIENT
 
     def draw(self, screen):
         screen.blit(self.image, self.rect)
 
     def hittest(self, obj):
-        """Функция проверяет сталкивалкивается ли данный обьект с объектом obj.
+        """Функция проверяет сталкивалкивается ли данный обьект с объектом target.
 
         Args:
             obj: Обьект, с которым проверяется столкновение, обязан иметь аттрибут rect
@@ -95,11 +109,11 @@ class Gun:
         Происходит при отпускании кнопки мыши.
         Начальные значения компонент скорости мяча vx и vy зависят от положения мыши.
         """
-        self.an = math.atan2((event.pos[1]-self.y), (event.pos[0]-self.x))
+        self.an = math.atan2((-event.pos[1]+self.y), (event.pos[0]-self.x))
         self.update()
-        new_ball = Ball(round(self.x + self.f2_power * math.cos(self.an)), round(self.y + self.f2_power * math.sin(self.an)))
-        new_ball.vx = self.f2_power * math.cos(self.an)/2
-        new_ball.vy = self.f2_power * math.sin(self.an)/2
+        new_ball = Ball(round(self.x + self.f2_power * math.cos(self.an)), round(self.y - self.f2_power * math.sin(self.an)))
+        new_ball.vx = self.f2_power * math.cos(self.an)*BALL_SPEED_COEFFICENT
+        new_ball.vy = - self.f2_power * math.sin(self.an)*BALL_SPEED_COEFFICENT
         self.f2_on = 0
         self.f2_power = 10
         return new_ball
@@ -130,7 +144,7 @@ class Gun:
     def power_up(self):
         if self.f2_on:
             if self.f2_power < 100:
-                self.f2_power += 1
+                self.f2_power += 2
             self.color = RED
         else:
             self.color = GREY
@@ -161,33 +175,58 @@ class Target(pygame.sprite.Sprite):
         self.rect.centery = self.y
         self.mask = pygame.mask.from_surface(self.image)
 
-    def hit(self, points=1):
+    def hit(self):
         """Попадание шарика в цель."""
-        self.points += points
+        pass
 
 class CrawlTarget(Target):
-    def __init__(self, r):
+    def __init__(self, r, pos):
         super().__init__()
         self.vx = 0
         self.vy = 0
+        self.x = pos[0]
+        self.y = pos[1]
         self.r = r
         self.new_target()
-    def update(self, screen):
+        self.image = pygame.transform.scale(pygame.image.load('resources/target.png').convert(), (2*r, 2*r))
+        self.image.set_colorkey(WHITE)
+    def update(self, screen, *args):
         self.rect = self.rect.move(self.vx, self.vy)
         self.vx += randint(-1 ,1)
         self.vy += randint(-1, 1)
-        if self.rect.right >= screen.get_width()-100:
-            self.rect.right = screen.get_width()-100
-            self.vx = -self.vx/2
 
-        if self.rect.bottom >= screen.get_height()-100:
-            self.rect.bottom = screen.get_height()-100
-            self.vy = -self.vy/2
+        if self.rect.right >= screen.get_width():
+            self.rect.right = screen.get_width()
+            self.vx = -self.vx
+        if self.rect.bottom >= screen.get_height():
+            self.rect.bottom = screen.get_height()
+            self.vy = -self.vy
+        if self.rect.top <= 0:
+            self.rect.top = 0
+            self.vy = -self.vy
+        if self.rect.left <= 0:
+            self.rect.left = 0
+            self.vx = -self.vx
 
-        if self.rect.top <= 100:
-            self.rect.top = 100
-            self.vy = -self.vy/2
+        self.vx = self.vx * CRAWLTARGET_FRICTION
+        self.vy = self.vy * CRAWLTARGET_FRICTION
 
-        if self.rect.left <= 100:
-            self.rect.left = 100
-            self.vx = -self.vx/2
+class Tile(pygame.sprite.Sprite):
+    def __init__(self, pos):
+        super().__init__()
+    def draw(self, screen, *args):
+        screen.blit(self.image, self.rect)
+
+class WoodTile(Tile):
+    def __init__(self, pos):
+        super().__init__(pos)
+        self.image = pygame.transform.scale(pygame.image.load('resources/box.png').convert(), (40, 40))
+        self.image.set_colorkey(WHITE)
+        self.rect = self.image.get_rect(center=pos)
+
+class IronTile(Tile):
+    def __init__(self, pos):
+        super().__init__(pos)
+        self.image = pygame.transform.scale(pygame.image.load('resources/ironbox.png').convert(), (40, 40))
+        self.image.set_colorkey(WHITE)
+        self.rect = self.image.get_rect(center=pos)
