@@ -75,11 +75,12 @@ def initiate_screen(level):
     for i in range(level_num):
         target = CrawlTarget(level_rad[i], level_pos[i])
         target.add(targets, all_sprites)
-
+"""создание экрана"""
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 bullet = 0
 
+"""создание групп спрайтов и инициализация первых объектов"""
 wood_tiles = pygame.sprite.Group()
 iron_tiles = pygame.sprite.Group()
 tiles = pygame.sprite.Group()
@@ -91,7 +92,7 @@ background = Background()
 gun = Gun()
 clock = pygame.time.Clock()
 
-
+"""Пред - main_loop операции"""
 finished = False
 level = 1
 initiate_screen(level)
