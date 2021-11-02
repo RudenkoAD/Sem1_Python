@@ -4,15 +4,31 @@ import pygame
 from constants import *
 
 
-class Background:
-    """неиспользуемый класс, #TODO использовать или удалить"""
-    def __init__(self):
-        pass
+"""Menu Classes"""
+class Button(pygame.sprite.Sprite):
+    def __init__(self, text, rect):
+        super().__init__()
+        self.rect = rect
+        self.image = pygame.transform.scale(pygame.image.load('resources/button.png').convert(), self.rect.size)
+        self.hover_image = pygame.transform.scale(pygame.image.load('resources/button_hover.png').convert(), self.rect.size)
+        self.image.set_colorkey(BLACK)
+        self.hover_image.set_colorkey(BLACK)
+        self.text = CLF.render(text, 0, GREY)
+        self.image.blit(self.text, self.text.get_rect(center=(self.rect.size[0]/2, self.rect.size[1]/2)))
+        self.hover_image.blit(self.text, self.text.get_rect(center=(self.rect.size[0]/2, self.rect.size[1]/2)))
+
+    def get_click(self, event):
+        return self.rect.collidepoint(event.pos[0], event.pos[1])
 
     def draw(self, screen):
-        pass
+
+        if self.rect.collidepoint(pygame.mouse.get_pos()[0], pygame.mouse.get_pos()[1]):
+            screen.blit(self.hover_image, self.rect)
+        else:
+            screen.blit(self.image, self.rect)
 
 
+"""Game Classes"""
 class Ball(pygame.sprite.Sprite):
     def __init__(self, x=20, y=450):
         """
@@ -126,7 +142,7 @@ class Gun:
         new_ball.vx = self.f2_power * math.cos(self.an)*BALL_SPEED_COEFFICENT
         new_ball.vy = - self.f2_power * math.sin(self.an)*BALL_SPEED_COEFFICENT
         self.f2_on = 0
-        self.f2_power = 10
+        self.color = GREY
         return new_ball
 
     def targetting(self, event):
@@ -134,17 +150,24 @@ class Gun:
         меняет цвет и угол наклона
         """
         self.an = math.atan2((-event.pos[1]+self.y), (event.pos[0]-self.x))
+        self.power_up(event)
         if self.f2_on:
             self.color = RED
         else:
             self.color = GREY
 
+    def power_up(self, event):
+        """
+        увеличивает силу заряда, меняет цвет на красный при зарядке
+        вызывается собственной функцией targetting
+        """
+        self.f2_power = 20 * (math.exp(math.hypot(self.x - event.pos[0], self.y - event.pos[1])/500)-1)
+
     def update(self):
-        """обновляет картину, угол и силу пушки #TODO и позицию"""
-        self.power_up()
-        self.image = pygame.surface.Surface((self.f2_power, 10))
+        """обновляет картину, угол и силу пушки"""
+        self.image = pygame.surface.Surface((self.f2_power, 5))
         self.image.fill(self.color)
-        pygame.draw.rect(self.image, BLACK, (0, 0, self.f2_power, 10), 1)
+        pygame.draw.rect(self.image, BLACK, (0, 0, self.f2_power, 5), 1)
         self.rot_image = pygame.transform.rotate(self.image, math.degrees(self.an))
         self.rot_image.set_colorkey(BLACK)
         if self.an > 0:
@@ -155,39 +178,27 @@ class Gun:
     def draw(self, screen):
         screen.blit(self.rot_image, self.rot_rect)
 
-    def power_up(self):
-        """увеличивает силу заряда, меняет цвет на красный при зарядке"""
-        if self.f2_on:
-            if self.f2_power < 100:
-                self.f2_power += 2
-            self.color = RED
-        else:
-            self.color = GREY
-
 
 class Target(pygame.sprite.Sprite):
-    def __init__(self):
+    def __init__(self, r, pos):
         """базовый конструктор классса target"""
         super().__init__()
-        self.x = 0
-        self.y = 0
-        self.r = 0
-        self.color = RED
-        self.new_target()
-
-    def draw(self, screen):
-        """вывод себя на экран"""
-        screen.blit(self.image, self.rect)
-
-    def new_target(self):
-        """Инициализация новой цели"""
-        self.image = pygame.surface.Surface((2*self.r, 2*self.r))
-        self.image.set_colorkey(BLACK)
-        pygame.draw.circle(self.image, self.color, (self.r, self.r), self.r)
+        self.x = pos[0]
+        self.y = pos[1]
+        self.r = r
+        self.image = pygame.transform.scale(pygame.image.load('resources/target.png').convert(), (2 * r, 2 * r))
+        self.image.set_colorkey(WHITE)
         self.rect = self.image.get_rect()
         self.rect.centerx = self.x
         self.rect.centery = self.y
         self.mask = pygame.mask.from_surface(self.image)
+
+    def update(self, *args):
+        pass
+
+    def draw(self, screen):
+        """вывод себя на экран"""
+        screen.blit(self.image, self.rect)
 
     def hit(self):
         """Попадание шарика в цель."""
@@ -196,15 +207,9 @@ class Target(pygame.sprite.Sprite):
 
 class CrawlTarget(Target):
     def __init__(self, r, pos):
-        super().__init__()
+        super().__init__(r, pos)
         self.vx = 0
         self.vy = 0
-        self.x = pos[0]
-        self.y = pos[1]
-        self.r = r
-        self.new_target()
-        self.image = pygame.transform.scale(pygame.image.load('resources/target.png').convert(), (2*r, 2*r))
-        self.image.set_colorkey(WHITE)
 
     def update(self, screen, *args):
         self.rect = self.rect.move(self.vx, self.vy)
@@ -226,6 +231,36 @@ class CrawlTarget(Target):
 
         self.vx = self.vx * CRAWLTARGET_FRICTION
         self.vy = self.vy * CRAWLTARGET_FRICTION
+
+
+class PathTarget(Target):
+    def __init__(self, r, pos1, pos2):
+        super().__init__(r, pos1)
+        self.pathtime = 2
+        self.time = 0
+        self.pos1 = pos1
+        self.pos2 = pos2
+
+    def update(self, *args):
+        self.time += 1/FPS
+        self.rect.center = (
+            self.pos2[0]*self.time/self.pathtime + self.pos1[0]*(self.pathtime - self.time)/self.pathtime,
+            self.pos2[1]*self.time/self.pathtime + self.pos1[1]*(self.pathtime - self.time)/self.pathtime
+        )
+        if self.time >= self.pathtime:
+            self.rect.center = self.pos2
+            self.time = 0
+            self.pos1, self.pos2 = self.pos2, self.pos1
+
+    def draw(self, screen):
+        """вывод себя на экран"""
+        pygame.draw.line(screen, BLACK, self.pos1, self.pos2, 2)
+        screen.blit(self.image, self.rect)
+
+
+class StationaryTarget(Target):
+    def __init__(self, r, pos):
+        super().__init__(r, pos)
 
 
 class Tile(pygame.sprite.Sprite):
